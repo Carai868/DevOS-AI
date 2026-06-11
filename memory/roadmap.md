@@ -7,6 +7,8 @@
 4. Wired the runner to use the terminal execution path instead of mock-only simulation.
 5. Added a marketplace/install path for extension-style packages.
 6. Added tests for marketplace install-name/path logic.
+7. Hardened the runtime path with command validation, safer install-path resolution, and timeout handling for terminal execution.
+8. Fixed analytics bootstrap to avoid broken production env handling and updated the TypeScript config for the current compiler.
 
 ## Still to complete
 1. Add real workspace open/clone/import support instead of only in-memory demo files.

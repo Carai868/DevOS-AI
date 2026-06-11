@@ -74,14 +74,14 @@ export async function fetchMarketplaceCatalog(): Promise<MarketplacePackage[]> {
     }));
 }
 
-export async function installMarketplaceExtension(name: string, workspaceRoot: string): Promise<InstallResult> {
-  const installDir = buildExtensionInstallDir(name, workspaceRoot);
+export async function installMarketplaceExtension(name: string, workspaceRoot?: string): Promise<InstallResult> {
+  const installDir = workspaceRoot ? buildExtensionInstallDir(name, workspaceRoot) : undefined;
 
   try {
     const response = await fetch("/api/extensions/install", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, installDir }),
+      body: JSON.stringify({ name, ...(installDir ? { installDir } : {}) }),
     });
 
     const data = await response.json();

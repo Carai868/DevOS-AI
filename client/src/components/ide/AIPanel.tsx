@@ -98,7 +98,7 @@ export default function AIPanel() {
 
   const handleInstall = async (name: string) => {
     setInstallingId(name);
-    const result = await installMarketplaceExtension(name, process.cwd());
+    const result = await installMarketplaceExtension(name);
     setInstallingId(null);
 
     if (result.ok) {

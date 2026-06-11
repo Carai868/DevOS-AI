@@ -5,10 +5,36 @@ import { fileURLToPath } from "url";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
+import { validateTerminalCommand, validateWorkspacePath } from "../shared/terminalSafety";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const execFileAsync = promisify(execFile);
+
+function normalizeExtensionName(name: string) {
+  return name
+    .trim()
+    .replace(/^@/, "")
+    .replace(/\//g, "-")
+    .replace(/[^a-z0-9-_]+/gi, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase() || "extension";
+}
+
+function resolveInstallDir(name: string, installDir?: string) {
+  const workspaceRoot = path.resolve(process.cwd());
+  const safeExtensionsRoot = path.join(workspaceRoot, ".devos", "extensions");
+  const fallbackDir = path.join(safeExtensionsRoot, normalizeExtensionName(name));
+  const targetDir = installDir ? path.resolve(installDir) : fallbackDir;
+
+  const relativeToRoot = path.relative(safeExtensionsRoot, targetDir);
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+    throw new Error("Install path must stay under the workspace extensions directory.");
+  }
+
+  return targetDir;
+}
 
 async function startServer() {
   const app = express();
@@ -20,12 +46,12 @@ async function startServer() {
     try {
       const { name, installDir } = req.body as { name?: string; installDir?: string };
 
-      if (!name || typeof name !== "string") {
+      if (!name || typeof name !== "string" || name.trim().length === 0) {
         res.status(400).json({ error: "Extension name is required." });
         return;
       }
 
-      const targetDir = installDir || path.join(process.cwd(), ".devos", "extensions", name);
+      const targetDir = resolveInstallDir(name, installDir);
       await fs.mkdir(targetDir, { recursive: true });
       await fs.writeFile(path.join(targetDir, "package.json"), JSON.stringify({
         name,
@@ -49,21 +75,20 @@ async function startServer() {
     try {
       const { command, cwd } = req.body as { command?: string; cwd?: string };
 
-      if (!command || typeof command !== "string") {
-        res.status(400).json({ error: "A terminal command is required." });
-        return;
-      }
+      const sanitizedCommand = validateTerminalCommand(command);
+      const validatedCwd = cwd ? validateWorkspacePath(cwd) : process.cwd();
 
       const shell = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
       const shellArgs = process.platform === "win32"
-        ? ["/d", "/s", "/c", command]
-        : ["-lc", command];
+        ? ["/d", "/s", "/c", sanitizedCommand]
+        : ["-lc", sanitizedCommand];
 
       const startedAt = Date.now();
       const { stdout, stderr } = await execFileAsync(shell, shellArgs, {
-        cwd: cwd || process.cwd(),
+        cwd: validatedCwd,
         maxBuffer: 10 * 1024 * 1024,
         env: process.env,
+        timeout: 120_000,
       });
 
       res.json({
