@@ -9,6 +9,7 @@
 6. Added tests for marketplace install-name/path logic.
 7. Hardened the runtime path with command validation, safer install-path resolution, and timeout handling for terminal execution.
 8. Fixed analytics bootstrap to avoid broken production env handling and updated the TypeScript config for the current compiler.
+9. Added MCP/A2A compatibility endpoints and surfaced protocol support in the AI panel for future integrations.
 
 ## Still to complete
 1. Add real workspace open/clone/import support instead of only in-memory demo files.

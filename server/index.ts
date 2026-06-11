@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import fs from "fs/promises";
 import { validateTerminalCommand, validateWorkspacePath } from "../shared/terminalSafety";
+import { buildA2AManifest, buildMcpManifest } from "../shared/protocolCompatibility";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -41,6 +42,31 @@ async function startServer() {
   const server = createServer(app);
 
   app.use(express.json());
+
+  app.get("/api/mcp/manifest", (_req, res) => {
+    res.json(buildMcpManifest());
+  });
+
+  app.get("/api/a2a/manifest", (_req, res) => {
+    res.json(buildA2AManifest());
+  });
+
+  app.post("/api/a2a/message", (req, res) => {
+    const { message } = req.body as { message?: string };
+
+    if (typeof message !== "string" || message.trim().length === 0) {
+      res.status(400).json({ error: "A message is required for A2A compatibility." });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      protocol: "A2A",
+      status: "received",
+      message: message.trim(),
+      receivedAt: new Date().toISOString(),
+    });
+  });
 
   app.post("/api/extensions/install", async (req, res) => {
     try {

@@ -9,6 +9,7 @@ import { useIDE, ChatMessage } from "@/contexts/IDEContext";
 import { Streamdown } from "streamdown";
 import { fetchMarketplaceCatalog, installMarketplaceExtension } from "@/lib/marketplace";
 import { toast } from "sonner";
+import { buildA2AManifest, buildMcpManifest } from "../../../../shared/protocolCompatibility";
 
 const QUICK_PROMPTS = [
   "Write a script to monitor disk usage",
@@ -69,6 +70,8 @@ export default function AIPanel() {
   const [input, setInput] = useState("");
   const [marketplaceItems, setMarketplaceItems] = useState<any[]>([]);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const mcpManifest = buildMcpManifest();
+  const a2aManifest = buildA2AManifest();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -153,6 +156,24 @@ export default function AIPanel() {
         )}
 
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* Protocol compatibility */}
+      <div style={{ borderTop: "1px solid #2A2A2A", padding: "8px 12px", background: "#111", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <Sparkles size={11} style={{ color: "#00FF87" }} />
+          <span className="ide-label">Protocol Compatibility</span>
+        </div>
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ border: "1px solid #2A2A2A", padding: "6px 8px", background: "#171717" }}>
+            <div style={{ fontSize: 11, color: "#E8E8E8", fontWeight: 700 }}>{mcpManifest.protocol}</div>
+            <div style={{ fontSize: 10, color: "#9A9A9A" }}>Transport: {mcpManifest.transport} · Capabilities: {mcpManifest.capabilities.join(", ")}</div>
+          </div>
+          <div style={{ border: "1px solid #2A2A2A", padding: "6px 8px", background: "#171717" }}>
+            <div style={{ fontSize: 11, color: "#E8E8E8", fontWeight: 700 }}>{a2aManifest.protocol}</div>
+            <div style={{ fontSize: 10, color: "#9A9A9A" }}>Status: {a2aManifest.status} · Endpoint: {a2aManifest.endpoint}</div>
+          </div>
+        </div>
       </div>
 
       {/* Marketplace */}
