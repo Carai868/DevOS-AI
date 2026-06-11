@@ -102,7 +102,7 @@ async function startServer() {
       const { command, cwd } = req.body as { command?: string; cwd?: string };
 
       const sanitizedCommand = validateTerminalCommand(command);
-      const validatedCwd = cwd ? validateWorkspacePath(cwd) : process.cwd();
+      const validatedCwd = cwd ? validateWorkspacePath(cwd, process.cwd()) : process.cwd();
 
       const shell = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
       const shellArgs = process.platform === "win32"
