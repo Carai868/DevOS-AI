@@ -33,7 +33,7 @@ function findFileById(nodes: FileNode[], id: string): FileNode | null {
 }
 
 export default function CodeEditor() {
-  const { files, activeFileId, openTabs, closeTab, setActiveFileId, updateFileContent, setCmdkOpen } = useIDE();
+  const { files, activeFileId, openTabs, closeTab, setActiveFileId, updateFileContent, saveFile, setCmdkOpen } = useIDE();
   const editorRef = useRef<any>(null);
 
   const activeFile = activeFileId ? findFileById(files, activeFileId) : null;
@@ -96,9 +96,11 @@ export default function CodeEditor() {
       setCmdkOpen(true);
     });
 
-    // CMD+S to save (mark clean)
+    // CMD+S to save the current file and clear its dirty state
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      // In a real app, this would save to filesystem
+      if (activeFileId) {
+        saveFile(activeFileId);
+      }
     });
   };
 

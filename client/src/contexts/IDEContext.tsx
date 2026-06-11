@@ -5,6 +5,8 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useRef } from "react";
+import { loadWorkspaceFiles, saveWorkspaceFiles } from "@/lib/workspace";
+import { runTerminalCommand } from "@/lib/terminalApi";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -423,6 +425,8 @@ interface IDEContextValue {
   openFile: (file: FileNode) => void;
   closeTab: (fileId: string) => void;
   updateFileContent: (fileId: string, content: string) => void;
+  saveFile: (fileId?: string) => void;
+  renameFile: (fileId: string, name: string) => void;
   createFile: (parentId: string, name: string, type: FileType) => void;
   deleteFile: (fileId: string) => void;
 
@@ -457,7 +461,7 @@ interface IDEContextValue {
 const IDEContext = createContext<IDEContextValue | null>(null);
 
 export function IDEProvider({ children }: { children: React.ReactNode }) {
-  const [files, setFiles] = useState<FileNode[]>(INITIAL_FILES);
+  const [files, setFiles] = useState<FileNode[]>(() => loadWorkspaceFiles(INITIAL_FILES));
   const [activeFileId, setActiveFileId] = useState<string | null>("f1-1");
   const [openTabs, setOpenTabs] = useState<EditorTab[]>([
     { fileId: "f1-1", fileName: "fetch_data.py", language: "python", isDirty: false },
@@ -511,13 +515,48 @@ export function IDEProvider({ children }: { children: React.ReactNode }) {
 
   const updateFileContent = useCallback((fileId: string, content: string) => {
     const updateNode = (nodes: FileNode[]): FileNode[] =>
-      nodes.map((n) => {
-        if (n.id === fileId) return { ...n, content };
-        if (n.children) return { ...n, children: updateNode(n.children) };
-        return n;
+      nodes.map((node) => {
+        if (node.id === fileId) {
+          return { ...node, content };
+        }
+        if (node.children) {
+          return { ...node, children: updateNode(node.children) };
+        }
+        return node;
       });
-    setFiles((prev) => updateNode(prev));
-    setOpenTabs((prev) => prev.map((t) => t.fileId === fileId ? { ...t, isDirty: true } : t));
+
+    setFiles((prev) => {
+      const next = updateNode(prev);
+      saveWorkspaceFiles(next);
+      return next;
+    });
+
+    setOpenTabs((prev) => prev.map((t) => (t.fileId === fileId ? { ...t, isDirty: true } : t)));
+  }, []);
+
+  const saveFile = useCallback((fileId: string = activeFileId ?? "") => {
+    if (!fileId) return;
+
+    setOpenTabs((prev) => prev.map((tab) => (tab.fileId === fileId ? { ...tab, isDirty: false } : tab)));
+  }, [activeFileId]);
+
+  const renameFile = useCallback((fileId: string, name: string) => {
+    if (!name.trim()) return;
+
+    setFiles((prev) => {
+      const renameNode = (nodes: FileNode[]): FileNode[] =>
+        nodes.map((node) => {
+          if (node.id === fileId) return { ...node, name: name.trim() };
+          if (node.children) return { ...node, children: renameNode(node.children) };
+          return node;
+        });
+
+      const next = renameNode(prev);
+      saveWorkspaceFiles(next);
+      return next;
+    });
+
+    setOpenTabs((prev) => prev.map((tab) => (tab.fileId === fileId ? { ...tab, fileName: name.trim() } : tab)));
   }, []);
 
   const createFile = useCallback((parentId: string, name: string, type: FileType) => {
@@ -533,20 +572,37 @@ export function IDEProvider({ children }: { children: React.ReactNode }) {
         if (n.children) return { ...n, children: insertNode(n.children) };
         return n;
       });
-    setFiles((prev) => insertNode(prev));
+
+    setFiles((prev) => {
+      const next = insertNode(prev);
+      saveWorkspaceFiles(next);
+      return next;
+    });
+
     if (type === "file") openFile(newNode);
   }, [openFile]);
 
   const deleteFile = useCallback((fileId: string) => {
     const removeNode = (nodes: FileNode[]): FileNode[] =>
       nodes.filter((n) => n.id !== fileId).map((n) => n.children ? { ...n, children: removeNode(n.children) } : n);
-    setFiles((prev) => removeNode(prev));
+
+    setFiles((prev) => {
+      const next = removeNode(prev);
+      saveWorkspaceFiles(next);
+      return next;
+    });
+
     closeTab(fileId);
   }, [closeTab]);
 
-  const runScript = useCallback((scriptId: string) => {
+  const runScript = useCallback(async (scriptId: string) => {
     const script = scripts.find((s) => s.id === scriptId);
     if (!script) return;
+
+    const scriptFile = findFile(files, script.fileId);
+    const command = scriptFile?.type === "file"
+      ? `python "${scriptFile.name}"`
+      : `python "${script.name}"`;
 
     runCounterRef.current += 1;
     const runId = `r${runCounterRef.current}`;
@@ -560,7 +616,7 @@ export function IDEProvider({ children }: { children: React.ReactNode }) {
       status: "running",
       startedAt: now.toISOString(),
       logs: [
-        { id: `${runId}-l1`, type: "system", text: `> Executing ${script.name} in venv: ${script.venv || "default"}`, timestamp: timeStr },
+        { id: `${runId}-l1`, type: "system", text: `> Executing ${script.name} in workspace`, timestamp: timeStr },
         { id: `${runId}-l2`, type: "info", text: `[START] ${script.name} @ ${now.toISOString()}`, timestamp: timeStr },
       ],
     };
@@ -571,40 +627,56 @@ export function IDEProvider({ children }: { children: React.ReactNode }) {
     setActivePanel("runner");
     setRightPanelTab("runner");
 
-    // Simulate run completion
-    const duration = 1500 + Math.random() * 3000;
-    setTimeout(() => {
-      const success = Math.random() > 0.25;
+    try {
+      const result = await runTerminalCommand(command, process.cwd());
       const doneTime = new Date().toTimeString().slice(0, 8);
-      setRuns((prev) => prev.map((r) => {
-        if (r.id !== runId) return r;
-        return {
-          ...r,
-          status: success ? "success" : "error",
-          finishedAt: new Date().toISOString(),
-          duration: Math.round(duration),
-          exitCode: success ? 0 : 1,
-          logs: [
-            ...r.logs,
-            ...(success
-              ? [
-                  { id: `${runId}-l3`, type: "stdout" as const, text: `[INFO] Processing...`, timestamp: doneTime },
-                  { id: `${runId}-l4`, type: "success" as const, text: `[DONE] ${script.name} completed successfully`, timestamp: doneTime },
-                  { id: `${runId}-l5`, type: "system" as const, text: `> Exit code: 0 | Duration: ${(duration / 1000).toFixed(1)}s`, timestamp: doneTime },
-                ]
-              : [
-                  { id: `${runId}-l3`, type: "stderr" as const, text: `RuntimeError: Unexpected error in ${script.name}`, timestamp: doneTime },
-                  { id: `${runId}-l4`, type: "system" as const, text: `> Exit code: 1 | Duration: ${(duration / 1000).toFixed(1)}s`, timestamp: doneTime },
-                ]),
-          ],
-        };
-      }));
+      const success = result.exitCode === 0;
+      const logs: LogLine[] = [
+        ...newRun.logs,
+        ...(result.stdout ? [{ id: `${runId}-l3`, type: "stdout" as const, text: result.stdout.trimEnd(), timestamp: doneTime }] : []),
+        ...(result.stderr ? [{ id: `${runId}-l4`, type: "stderr" as const, text: result.stderr.trimEnd(), timestamp: doneTime }] : []),
+        {
+          id: `${runId}-l${result.stdout || result.stderr ? 5 : 3}`,
+          type: success ? "success" : "system",
+          text: success ? `[DONE] ${script.name} completed successfully` : `[FAIL] ${script.name} exited with code ${result.exitCode}`,
+          timestamp: doneTime,
+        },
+        { id: `${runId}-l${result.stdout || result.stderr ? 6 : 4}`, type: "system", text: `> Exit code: ${result.exitCode} | Duration: ${(result.durationMs / 1000).toFixed(1)}s`, timestamp: doneTime },
+      ];
+
+      setRuns((prev) => prev.map((r) => r.id === runId ? {
+        ...r,
+        status: success ? "success" : "error",
+        finishedAt: new Date().toISOString(),
+        duration: result.durationMs,
+        exitCode: result.exitCode,
+        logs,
+      } : r));
+
       setScripts((prev) => prev.map((s) => s.id === scriptId
         ? { ...s, status: success ? "idle" : "error", lastRun: new Date().toISOString(), runCount: s.runCount + 1 }
         : s
       ));
-    }, duration);
-  }, [scripts]);
+    } catch (error) {
+      const doneTime = new Date().toTimeString().slice(0, 8);
+      const message = error instanceof Error ? error.message : "Unknown terminal error";
+
+      setRuns((prev) => prev.map((r) => r.id === runId ? {
+        ...r,
+        status: "error",
+        finishedAt: new Date().toISOString(),
+        duration: 0,
+        exitCode: 1,
+        logs: [
+          ...r.logs,
+          { id: `${runId}-l3`, type: "stderr" as const, text: message, timestamp: doneTime },
+          { id: `${runId}-l4`, type: "system" as const, text: "> Exit code: 1 | Duration: 0.0s", timestamp: doneTime },
+        ],
+      } : r));
+
+      setScripts((prev) => prev.map((s) => s.id === scriptId ? { ...s, status: "error", lastRun: new Date().toISOString(), runCount: s.runCount + 1 } : s));
+    }
+  }, [files, findFile, scripts]);
 
   const addScript = useCallback((fileId: string) => {
     const file = findFile(files, fileId);
@@ -687,6 +759,8 @@ Save this to \`scripts/\` and register it in the **Runner** panel to schedule or
     openFile,
     closeTab,
     updateFileContent,
+    saveFile,
+    renameFile,
     createFile,
     deleteFile,
     activePanel,

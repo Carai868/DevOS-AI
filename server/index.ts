@@ -2,13 +2,88 @@ import express from "express";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import fs from "fs/promises";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const execFileAsync = promisify(execFile);
 
 async function startServer() {
   const app = express();
   const server = createServer(app);
+
+  app.use(express.json());
+
+  app.post("/api/extensions/install", async (req, res) => {
+    try {
+      const { name, installDir } = req.body as { name?: string; installDir?: string };
+
+      if (!name || typeof name !== "string") {
+        res.status(400).json({ error: "Extension name is required." });
+        return;
+      }
+
+      const targetDir = installDir || path.join(process.cwd(), ".devos", "extensions", name);
+      await fs.mkdir(targetDir, { recursive: true });
+      await fs.writeFile(path.join(targetDir, "package.json"), JSON.stringify({
+        name,
+        version: "1.0.0",
+        installedAt: new Date().toISOString(),
+        source: "marketplace",
+      }, null, 2));
+
+      res.json({
+        ok: true,
+        message: `Installed ${name} into ${targetDir}`,
+        installedPath: targetDir,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown extension install error";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/terminal/execute", async (req, res) => {
+    try {
+      const { command, cwd } = req.body as { command?: string; cwd?: string };
+
+      if (!command || typeof command !== "string") {
+        res.status(400).json({ error: "A terminal command is required." });
+        return;
+      }
+
+      const shell = process.platform === "win32" ? "cmd.exe" : "/bin/sh";
+      const shellArgs = process.platform === "win32"
+        ? ["/d", "/s", "/c", command]
+        : ["-lc", command];
+
+      const startedAt = Date.now();
+      const { stdout, stderr } = await execFileAsync(shell, shellArgs, {
+        cwd: cwd || process.cwd(),
+        maxBuffer: 10 * 1024 * 1024,
+        env: process.env,
+      });
+
+      res.json({
+        exitCode: 0,
+        stdout,
+        stderr,
+        durationMs: Date.now() - startedAt,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown terminal error";
+      const stderr = message;
+      res.status(500).json({
+        error: message,
+        exitCode: 1,
+        stdout: "",
+        stderr,
+        durationMs: 0,
+      });
+    }
+  });
 
   // Serve static files from dist/public in production
   const staticPath =

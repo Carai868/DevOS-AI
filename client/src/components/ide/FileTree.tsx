@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from "react";
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, Trash2, Play } from "lucide-react";
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, Trash2, Play, PencilLine } from "lucide-react";
 import { useIDE, FileNode } from "@/contexts/IDEContext";
 import { toast } from "sonner";
 
@@ -34,7 +34,7 @@ interface FileNodeProps {
 }
 
 function FileTreeNode({ node, depth }: FileNodeProps) {
-  const { activeFileId, openFile, deleteFile, addScript, scripts, runScript } = useIDE();
+  const { activeFileId, openFile, deleteFile, addScript, scripts, runScript, renameFile } = useIDE();
   const [expanded, setExpanded] = useState(depth < 2);
   const [showActions, setShowActions] = useState(false);
 
@@ -55,6 +55,14 @@ function FileTreeNode({ node, depth }: FileNodeProps) {
     deleteFile(node.id);
     toast.success(`Deleted ${node.name}`);
   }, [node, deleteFile]);
+
+  const handleRename = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextName = window.prompt("Rename file", node.name);
+    if (!nextName || !nextName.trim()) return;
+    renameFile(node.id, nextName.trim());
+    toast.success(`Renamed ${node.name} to ${nextName.trim()}`);
+  }, [node, renameFile]);
 
   const handleRegisterRun = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -126,6 +134,21 @@ function FileTreeNode({ node, depth }: FileNodeProps) {
                 <Play size={10} />
               </button>
             )}
+            <button
+              onClick={handleRename}
+              title="Rename"
+              style={{
+                background: "none",
+                border: "none",
+                padding: "1px 3px",
+                color: "#555",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <PencilLine size={10} />
+            </button>
             <button
               onClick={handleDelete}
               title="Delete"

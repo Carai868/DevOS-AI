@@ -4,9 +4,11 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles } from "lucide-react";
+import { Send, Bot, User, Sparkles, Download, Package } from "lucide-react";
 import { useIDE, ChatMessage } from "@/contexts/IDEContext";
 import { Streamdown } from "streamdown";
+import { fetchMarketplaceCatalog, installMarketplaceExtension } from "@/lib/marketplace";
+import { toast } from "sonner";
 
 const QUICK_PROMPTS = [
   "Write a script to monitor disk usage",
@@ -65,6 +67,8 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 export default function AIPanel() {
   const { chatMessages, sendChatMessage, isChatLoading } = useIDE();
   const [input, setInput] = useState("");
+  const [marketplaceItems, setMarketplaceItems] = useState<any[]>([]);
+  const [installingId, setInstallingId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -72,12 +76,36 @@ export default function AIPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages.length, isChatLoading]);
 
+  useEffect(() => {
+    let active = true;
+
+    fetchMarketplaceCatalog().then((items) => {
+      if (active) setMarketplaceItems(items);
+    }).catch(() => {
+      if (active) setMarketplaceItems([]);
+    });
+
+    return () => { active = false; };
+  }, []);
+
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed || isChatLoading) return;
     sendChatMessage(trimmed);
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+  };
+
+  const handleInstall = async (name: string) => {
+    setInstallingId(name);
+    const result = await installMarketplaceExtension(name, process.cwd());
+    setInstallingId(null);
+
+    if (result.ok) {
+      toast.success(result.message || `Installed ${name}`);
+    } else {
+      toast.error(result.message || `Failed to install ${name}`);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -125,6 +153,34 @@ export default function AIPanel() {
         )}
 
         <div ref={messagesEndRef} />
+      </div>
+
+      {/* Marketplace */}
+      <div style={{ borderTop: "1px solid #2A2A2A", padding: "8px 12px", background: "#111", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <Package size={11} style={{ color: "#00FF87" }} />
+          <span className="ide-label">Marketplace</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {marketplaceItems.length === 0 ? (
+            <div style={{ fontSize: 10, color: "#555" }}>Marketplace catalog unavailable right now.</div>
+          ) : marketplaceItems.map((item) => (
+            <div key={item.id} style={{ border: "1px solid #2A2A2A", padding: "6px 8px", display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: "#E8E8E8", fontWeight: 700 }}>{item.name}</div>
+                <div style={{ fontSize: 10, color: "#666" }}>{item.description}</div>
+              </div>
+              <button
+                className="ide-btn primary"
+                onClick={() => handleInstall(item.name)}
+                disabled={installingId === item.name}
+                style={{ fontSize: 10, padding: "4px 8px", opacity: installingId === item.name ? 0.6 : 1 }}
+              >
+                {installingId === item.name ? "Installing..." : <><Download size={10} /> Install</>}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Quick prompts */}
