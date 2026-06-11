@@ -73,7 +73,7 @@ function ActivityBar({ onSelect, activeSidebar }: { onSelect: (id: string) => vo
     >
       {/* Logo */}
       <div style={{ width: 32, height: 32, marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <img src={LOGO_URL} alt="PyRunner IDE" style={{ width: 24, height: 24, objectFit: "contain" }} />
+        <img src={LOGO_URL} alt="DevOS AI" style={{ width: 24, height: 24, objectFit: "contain" }} />
       </div>
 
       {/* Top items */}
@@ -176,7 +176,7 @@ function StatusBar() {
       {/* Left: PyRunner status */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Zap size={10} style={{ color: "#00FF87" }} />
-        <span style={{ fontSize: 10, color: "#00FF87", fontWeight: 700, letterSpacing: "0.06em" }}>PYRUNNER</span>
+        <span style={{ fontSize: 10, color: "#00FF87", fontWeight: 700, letterSpacing: "0.06em" }}>DEVOS AI</span>
         <span style={{ fontSize: 10, color: "#333" }}>connected</span>
       </div>
 
@@ -318,8 +318,8 @@ export default function Home() {
           gap: 10,
           flexShrink: 0,
         }}>
-          <img src={LOGO_URL} alt="PyRunner IDE" style={{ width: 20, height: 20, objectFit: "contain" }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#E8E8E8" }}>PyRunner IDE</span>
+          <img src={LOGO_URL} alt="DevOS AI" style={{ width: 20, height: 20, objectFit: "contain" }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#E8E8E8" }}>DevOS AI</span>
           <span style={{ marginLeft: "auto", fontSize: 10, color: "#00FF87" }}>● connected</span>
         </div>
 

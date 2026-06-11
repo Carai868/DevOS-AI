@@ -36,7 +36,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
           <Bot size={11} style={{ color: "#00FF87" }} />
         )}
         <span style={{ fontSize: 10, color: isUser ? "#555" : "#00FF87", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          {isUser ? "You" : "PyRunner AI"}
+          {isUser ? "You" : "DevOS AI"}
         </span>
         <span style={{ fontSize: 10, color: "#333", marginLeft: "auto" }}>
           {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
@@ -142,7 +142,7 @@ export default function AIPanel() {
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
               <Bot size={11} style={{ color: "#00FF87" }} />
               <span style={{ fontSize: 10, color: "#00FF87", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                PyRunner AI
+                DevOS AI
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -159,7 +159,7 @@ export default function AIPanel() {
       <div style={{ borderTop: "1px solid #2A2A2A", padding: "8px 12px", background: "#111", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
           <Package size={11} style={{ color: "#00FF87" }} />
-          <span className="ide-label">Marketplace</span>
+          <span className="ide-label">DevOS Marketplace</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {marketplaceItems.length === 0 ? (

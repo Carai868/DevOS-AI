@@ -37,7 +37,7 @@ export async function fetchMarketplaceCatalog(): Promise<MarketplacePackage[]> {
     return [
       {
         id: "devos-terminal-theme",
-        name: "devos-terminal-theme",
+        name: "DevOS Terminal Theme",
         version: "1.0.0",
         publisher: "DevOS",
         description: "Brutalist terminal theme pack for the IDE.",
@@ -46,7 +46,7 @@ export async function fetchMarketplaceCatalog(): Promise<MarketplacePackage[]> {
       },
       {
         id: "devos-python-helpers",
-        name: "devos-python-helpers",
+        name: "DevOS Python Helpers",
         version: "1.0.0",
         publisher: "DevOS",
         description: "Python linting and helper snippets for the workspace.",
